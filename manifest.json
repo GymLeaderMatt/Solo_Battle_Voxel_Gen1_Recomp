@@ -1,0 +1,20 @@
+{
+  "id": "SOLO_BATTLE_VOXEL",
+  "name": "Solo Battle Voxel",
+  "version": "2.2.1",
+  "api": 2,
+  "entry": "main.lua",
+  "profile": "content",
+  "category": "GRAPHICS",
+  "games": [
+    "gen1"
+  ],
+  "game_version": "0.0.0-dev || >=0.1.69 <2.0.0",
+  "priority": 100,
+  "dependencies": [],
+  "permissions": [
+    "engine_internals"
+  ],
+  "affects_link": false,
+  "description": "Voxel branch focused on custom battle backgrounds."
+}
