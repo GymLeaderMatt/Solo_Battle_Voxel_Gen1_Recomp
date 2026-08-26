@@ -44,6 +44,7 @@ local BattleCam = V.require("BattleCam")
 local BattleScene = V.require("BattleScene")
 local BattleDOF = V.require("BattleDOF")
 local BattleHud = V.require("BattleHud")
+local BattleHudPanel = V.require("BattleHudPanel")
 local BattlePresentation = V.require("BattlePresentation")
 local UiBackplates = V.require("UiBackplates")
 local TextboxStyle = V.require("TextboxStyle")
@@ -420,7 +421,14 @@ OverworldBattle.HUD_EDGE_INSET = 2
 -- that side because a band carries more than the HUD (the intro pokeball rows
 -- sit in the rows below the foe's block) and pinning the block alone would
 -- push those rows down onto the text box.
-OverworldBattle.HUD_PIN = { playerTop = 0, enemyBottom = 96 }
+--
+-- playerTop = 56 lines the player band up with the enemy band (both occupy
+-- GB rows 48-96) instead of hanging the player HUD from the top of the
+-- frame: with HUD_SIDES_SWAPPED, that puts player bottom-left and enemy
+-- bottom-right, level with each other. Exact only under HUD SCALE: OG,
+-- where hs == s; under SCALED (this mod's default) hs can differ from s at
+-- some window widths, which can leave a sub-pixel gap between the two rows.
+OverworldBattle.HUD_PIN = { playerTop = 56, enemyBottom = 96 }
 
 -- How wide the wider of the two blocks should be on screen, and the window
 -- width that number was chosen against. The target scales with the window, so
@@ -1690,7 +1698,9 @@ function OverworldBattle.snapHUDs(battle, shot)
   if session then session.dark = panelDark end
   local layer = OverworldBattle.hudTexture(battle, slide, true, color,
                                            colorShadow)
-  if not layer then return false end
+  -- PANEL draws none of this layer, so a build failure there is not a
+  -- reason to fall back to the in-frame HUD.
+  if not (layer or UiBackplates.hudUsesPanel()) then return false end
 
   local g = love.graphics
   local prevCanvas = g.getCanvas()
@@ -1702,12 +1712,41 @@ function OverworldBattle.snapHUDs(battle, shot)
       BattleHud.panel(rect, shot, panelDark, true)
     end
     g.setColor(1, 1, 1, 1)
-    for side, band in pairs(OverworldBattle.HUD_BAND) do
-      local placement = bandPlacement[side]
-      local quad = g.newQuad(band[1], band[2], band[3], band[4],
-                             BattleScene.GB_W, BattleScene.GB_H)
-      g.draw(layer, quad, placement.x + band[1] * placement.scale,
-             placement.y, 0, placement.scale, placement.scale)
+    if UiBackplates.hudUsesPanel() then
+      -- PANEL replaces the block outright, so the engine band is not blitted
+      -- at all. The intro ball row and the Safari count are drawn INSIDE the
+      -- block's own rows (GB 24..64 x 16..24 lands inside HUD_RECT.enemy =
+      -- {8,0,80,32}), so there is no crop that keeps them; the panel's own
+      -- cluster carries the party state for the whole battle instead.
+      --
+      -- `enemy` and `player` come from hudLive above, so each panel appears
+      -- and disappears on exactly the frames the engine block would have.
+      -- the party is resolved BEFORE placing: each side's box is only as
+      -- tall as its own contents, so the foe's height depends on whether a
+      -- ball cluster is going into it
+      local party = (battle.kind == "trainer" or battle.kind == "link")
+                    and battle.enemyParty or nil
+      local at = BattleHudPanel.place(shot,
+                                      OverworldBattle.HUD_SIDES_SWAPPED,
+                                      OverworldBattle.HUD_PIN, party)
+      if at then
+        if enemy then
+          BattleHudPanel.draw(battle.enemy, party,
+                              at.enemy[1], at.enemy[2], at.scale)
+        end
+        if player then
+          BattleHudPanel.draw(battle.player, nil,
+                              at.player[1], at.player[2], at.scale)
+        end
+      end
+    else
+      for side, band in pairs(OverworldBattle.HUD_BAND) do
+        local placement = bandPlacement[side]
+        local quad = g.newQuad(band[1], band[2], band[3], band[4],
+                               BattleScene.GB_W, BattleScene.GB_H)
+        g.draw(layer, quad, placement.x + band[1] * placement.scale,
+               placement.y, 0, placement.scale, placement.scale)
+      end
     end
   end)
   if prevCanvas then g.setCanvas(prevCanvas) else g.setCanvas() end

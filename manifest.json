@@ -1,9 +1,10 @@
 {
   "id": "SOLO_BATTLE_VOXEL",
   "name": "Solo Battle Voxel",
-  "version": "2.2.1",
+  "version": "2.5.2",
   "api": 2,
   "entry": "main.lua",
+  "assets_transforms": "assets_transforms.lua",
   "profile": "content",
   "category": "GRAPHICS",
   "games": [

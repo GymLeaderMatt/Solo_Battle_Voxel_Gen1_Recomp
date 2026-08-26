@@ -11,40 +11,31 @@ local SPECIES_BY_DEX = V.data("battle_species_dex_386")
 -- presentationScale): a 192 master is read here and nowhere else.
 BattleArt.setting = ModSetting.new("battleArt", "BATTLE ART",
   { "static", "rom" }, { "STATIC", "ROM" }, 1)
-BattleArt.frontAnimationSetting = ModSetting.new("frontAnimatedSet", "ANIM FRONT GEN",
-  { "gen1", "gen2", "gen3", "gen4", "gen5" },
-  { "GEN 1", "GEN 2", "GEN 3", "GEN 4", "GEN 5" }, 5)
 -- The selected generation names the static back folder in STATIC mode. In
 -- ANIMATED mode uses atlases for Gen 3 and Gen 5; Gen 1, 2 and 4 use their
 -- single images. The mode, not just the generation, decides the decoder.
+-- Only gen1 backs ship. The gen2-gen5 folders were removed rather than left
+-- as menu entries that resolve to nothing and fall silently back to the ROM.
 BattleArt.backAnimationSetting = ModSetting.new("backAnimatedSet", "BACK ART SET",
-  { "gen1", "gen2", "gen3", "gen4", "gen5" },
-  { "GEN 1", "GEN 2", "GEN 3", "GEN 4", "GEN 5" }, 5)
+  { "gen1" }, { "GEN 1" }, 1)
 BattleArt.viewSetting = ModSetting.new("playerView", "PLAYER",
   { "front", "back" }, { "FRONT SPRITES", "BACK SPRITES" }, 1)
 BattleArt.backPlacementSetting = ModSetting.new(
   "backPlacement", "BACK PLACEMENT",
   { "auto", "world", "ui" }, { "AUTO", "WORLD", "OG UI" }, 1)
+-- As with BACK ART SET: only the gen1 trainer collection ships.
 BattleArt.trainerSetting = ModSetting.new(
   "trainerArtSet", "TRAINER ART",
-  { "gen1", "gen2", "gen3" }, { "GEN 1", "GEN 2", "GEN 3" }, 1)
+  { "gen1" }, { "GEN 1" }, 1)
 BattleArt.playerArtSetting = ModSetting.new(
   "playerArtSet", "PLAYER ART",
   -- red / grunt / slowpoke are supplied front-facing and are NOT flipped:
   -- they read <set>player.png out of back-static like every other collection,
   -- and the trainer intro does not go through FLIP FRONT SPRITE.
-  { "png", "red", "grunt", "slowpoke",
-    "gen1", "gen2", "gen3", "gen4", "gen5", "ash", "gary", "boy",
-    "lass", "hilbert", "rom" },
-  { "PNG", "RED", "GRUNT", "SLOWPOKE",
-    "GEN 1", "GEN 2", "GEN 3", "GEN 4", "GEN 5", "ASH", "GARY", "BOY",
-    "LASS", "HILBERT", "ROM" })
-BattleArt.playerAnimationSetting = ModSetting.new(
-  "playerAnimatedSet", "PLAYER ANIM",
-  { "png", "gen1", "gen2", "gen3", "gen4", "gen5", "ash", "gary", "red",
-    "ash_front", "misty_front", "brock_front", "bulma_front", "gary_front", "rom" },
-  { "PNG", "GEN 1", "GEN 2", "GEN 3", "GEN 4", "GEN 5", "ASH", "GARY", "RED",
-    "ASH FRONT", "MISTY FRONT", "BROCK FRONT", "BULMA FRONT", "GARY FRONT", "ROM" }, 9)
+  -- Oak and Old Man are NOT in this ladder: the demo battles resolve them by
+  -- name (see applyTrainers), so they ship regardless of what is selected.
+  { "red", "slowpoke", "grunt", "png", "rom" },
+  { "RED", "SLOWPOKE", "GRUNT", "PNG", "ROM" }, 1)
 -- One owner for species pictures. BATTLE ART keeps this mod's selected front
 -- and back collections in charge, including its imported shiny children.
 -- MODDED leaves every Pokemon picture to the underlying sprite provider (or
@@ -64,6 +55,14 @@ BattleArt.duplicateSetting = ModSetting.new(
 BattleArt.frontFlipSetting = ModSetting.new(
   "frontFlip", "FLIP FRONT SPRITE",
   { "battle_art", "default" }, { "BATTLE ART", "DEFAULT" }, 1)
+
+-- Grows the keyed-out silhouette by one ring and fills it white, matching
+-- the clean outline other sprite mods (Emerald Seaglass) draw around their
+-- battle art. Applies to this file's own STATIC/ANIMATED sprites; ROM-
+-- decoded fallbacks are outlined separately by assets_transforms.lua.
+BattleArt.outlineSetting = ModSetting.new(
+  "spriteOutline", "SPRITE OUTLINE",
+  { "off", "on" }, { "OFF", "ON" }, 2)
 
 function BattleArt.prefersModded()
   return BattleArt.duplicateSetting:get() == "modded"
@@ -309,6 +308,43 @@ local function applyDisplayFilter(data, mode)
   end)
 end
 
+-- Grows the current silhouette by one 8-connected ring and paints the new
+-- ring solid white -- the Emerald Seaglass look. Growth is measured against
+-- the ORIGINAL silhouette (collected into `additions` before any pixel is
+-- written), so the ring doesn't bleed outward a second time off its own
+-- output.
+function BattleArt.addWhiteOutline(data, w, h)
+  local additions
+  for y = 0, h - 1 do
+    for x = 0, w - 1 do
+      local _, _, _, a = data:getPixel(x, y)
+      if a <= 0.001 then
+        local hit = false
+        for dy = -1, 1 do
+          for dx = -1, 1 do
+            if not (dx == 0 and dy == 0) then
+              local nx, ny = x + dx, y + dy
+              if nx >= 0 and ny >= 0 and nx < w and ny < h then
+                local _, _, _, na = data:getPixel(nx, ny)
+                if na > 0.001 then hit = true break end
+              end
+            end
+          end
+          if hit then break end
+        end
+        if hit then
+          additions = additions or {}
+          additions[#additions + 1] = { x, y }
+        end
+      end
+    end
+  end
+  if not additions then return end
+  for _, p in ipairs(additions) do
+    data:setPixel(p[1], p[2], 1, 1, 1, 1)
+  end
+end
+
 -- Turn one logical sprite image into battle-ready art. Animated atlases use
 -- this same path after extracting a cell, so static and animated art receive
 -- identical transparency keying, display-palette filtering and anchoring.
@@ -332,15 +368,24 @@ function BattleArt.prepareData(data, mode)
     -- matching eye/highlight enclosed by the silhouette is preserved.
     if opaque then
       local key = rgbaKey(data, w, h)
+      local INK = { 0, 0, 0 }
+      local TOL = 0.5 / 255
+      local function closeTo(r, g, b, c)
+        return math.abs(r - c[1]) <= TOL and math.abs(g - c[2]) <= TOL
+               and math.abs(b - c[3]) <= TOL
+      end
       local seen, stack, top = {}, {}, 0
+      -- Flood the matte in from the border, but let the flood tunnel through
+      -- outline (ink) pixels too -- without erasing them -- so it can reach
+      -- a matte pocket sealed off from the border by outline alone (between
+      -- a Pokemon's front legs, under its tail, between a body and a limb).
+      -- Only matte-colour pixels are ever erased; ink is visited, not eaten.
       local function push(x, y)
         if x < 0 or y < 0 or x >= w or y >= h then return end
         local i = y * w + x
         if seen[i] then return end
         local r, g, b = data:getPixel(x, y)
-        if math.abs(r - key[1]) > 0.5 / 255
-           or math.abs(g - key[2]) > 0.5 / 255
-           or math.abs(b - key[3]) > 0.5 / 255 then return end
+        if not (closeTo(r, g, b, key) or closeTo(r, g, b, INK)) then return end
         seen[i], top = true, top + 1
         stack[top] = i
       end
@@ -350,12 +395,15 @@ function BattleArt.prepareData(data, mode)
         local i = stack[top]; stack[top], top = nil, top - 1
         local x, y = i % w, math.floor(i / w)
         local r, g, b = data:getPixel(x, y)
-        data:setPixel(x, y, r, g, b, 0)
+        if closeTo(r, g, b, key) then data:setPixel(x, y, r, g, b, 0) end
         push(x - 1, y); push(x + 1, y); push(x, y - 1); push(x, y + 1)
       end
     end
 
     applyDisplayFilter(data, mode)
+    if BattleArt.outlineSetting:get() == "on" then
+      BattleArt.addWhiteOutline(data, w, h)
+    end
 
     local x0, x1, y0, y1 = w, -1, h, -1
     for y = 0, h - 1 do
@@ -402,37 +450,6 @@ function BattleArt.image(species, side, battler)
     metrics[image].staticFront = true
   end
   return image
-end
-
--- Back-generation choices Gen 1-5 are ordinary, independently replaceable
--- PNGs. They use the same transparency keying, palette filtering and native
--- pixel metrics as BATTLE ART: STATIC, but live in generation subfolders so
--- switching the selector does not require renaming or replacing files.
-function BattleArt.generationBackImage(species, generation, battler)
-  if not BattleArt.ownsSpeciesArt() then return nil end
-  local shiny = BattleArt.isShiny(battler)
-  local rel = generationRelativePath(
-    species, generation, "back", shiny)
-  if not rel then return nil end
-  local path = V.mod.assets:path(rel)
-  return prepare(path, displayMode())
-end
-
--- Gen 1 has no animated front atlas. ANIMATED mode still offers it as a
--- compatibility collection so SGB and ROM-hack fronts can coexist with the
--- independently animated player-trainer intro. Each species is one ordinary
--- image; no metadata or timing sidecar is involved.
-function BattleArt.generationFrontImage(species, generation, battler)
-  if not tostring(generation or ""):match("^gen[1-5]$") then return nil end
-  -- Shiny-compatible: BATTLE ART selects the generation's shiny child folder
-  -- (`front-animated/<gen>/shiny/<slug>.png`).
-  -- MODDED leaves every species image to another sprite mod or the ROM.
-  if not BattleArt.ownsSpeciesArt() then return nil end
-  local shiny = BattleArt.isShiny(battler)
-  local rel = generationRelativePath(
-    species, generation, "front", shiny)
-  local path = V.mod.assets:path(rel)
-  return prepare(path, displayMode())
 end
 
 function BattleArt.namedImage(name, side)

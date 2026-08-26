@@ -62,6 +62,23 @@ function UiBackplates.hudUsesColorShadow()
          and UiBackplates.hudColor:get() == "COLOR"
 end
 
+-- ------- HUD STYLE -------
+--
+-- OG is the filtered ROM HUD: the engine's own status block, recoloured by
+-- the shaders above and snapped to the window edge. Its proportions are the
+-- Game Boy's -- the bar is 8 rows of a 32-row block because that is where the
+-- ROM put it -- and scaling the block scales the name and the level with it.
+--
+-- PANEL draws the mod's own box instead (see BattleHudPanel): a black field
+-- with a white outline, sized to the solo-run overlay column rather than to
+-- the Game Boy, with a bar that is over a third of the panel height.
+UiBackplates.hudStyle = ModSetting.new("hudStyle", "HUD STYLE",
+  { "OG", "PANEL" }, { "OG", "PANEL" }, 2)
+
+function UiBackplates.hudUsesPanel()
+  return UiBackplates.hudStyle:get() == "PANEL"
+end
+
 -- ------- B) ARENA FILL -------
 --
 -- Only two rungs survive the Solo Battle Voxel cut: the voxel arena, and a
