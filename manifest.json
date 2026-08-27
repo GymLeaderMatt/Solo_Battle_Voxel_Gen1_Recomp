@@ -1,7 +1,7 @@
 {
   "id": "SOLO_BATTLE_VOXEL",
   "name": "Solo Battle Voxel",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "api": 2,
   "entry": "main.lua",
   "assets_transforms": "assets_transforms.lua",
