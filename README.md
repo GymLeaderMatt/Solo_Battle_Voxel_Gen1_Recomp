@@ -5,7 +5,7 @@
 - I was tired of the voxel mod shuffle so I basically took the original mod, some tweaks from some other mods, and made my own.
 - Voxel in the overworld isn't my priority. It's just there. I personally do not play with it on. The main focus was battles.
 
-<img width="1917" height="1079" alt="voxelbattle" src="https://github.com/user-attachments/assets/b1f0a48c-95f1-49b3-8465-545575319384" />
+<img width="1917" height="1077" alt="gitTest" src="https://github.com/user-attachments/assets/5e6b54b5-28de-4514-b30e-7f608307e70c" />
 
 # Main Features:
 - Contains a generated gradient background and a 'disc' system.
