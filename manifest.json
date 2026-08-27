@@ -11,7 +11,7 @@
     "gen1"
   ],
   "game_version": "0.0.0-dev || >=0.1.69 <2.0.0",
-  "priority": 100,
+  "priority": 101,
   "dependencies": [],
   "permissions": [
     "engine_internals"

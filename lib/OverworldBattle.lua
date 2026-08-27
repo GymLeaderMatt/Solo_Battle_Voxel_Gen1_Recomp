@@ -1717,18 +1717,20 @@ function OverworldBattle.snapHUDs(battle, shot)
       -- at all. The intro ball row and the Safari count are drawn INSIDE the
       -- block's own rows (GB 24..64 x 16..24 lands inside HUD_RECT.enemy =
       -- {8,0,80,32}), so there is no crop that keeps them; the panel's own
-      -- cluster carries the party state for the whole battle instead.
+      -- party box carries the party state for the whole battle instead.
       --
       -- `enemy` and `player` come from hudLive above, so each panel appears
       -- and disappears on exactly the frames the engine block would have.
-      -- the party is resolved BEFORE placing: each side's box is only as
-      -- tall as its own contents, so the foe's height depends on whether a
-      -- ball cluster is going into it
+      --
+      -- A party is a TRAINER's, so a wild foe passes nil and gets no party
+      -- box -- the same test the engine's own ball row uses. Placement no
+      -- longer depends on it: the box is drawn above the foe's panel rather
+      -- than inside it, so both panels are the same size either way.
       local party = (battle.kind == "trainer" or battle.kind == "link")
                     and battle.enemyParty or nil
       local at = BattleHudPanel.place(shot,
                                       OverworldBattle.HUD_SIDES_SWAPPED,
-                                      OverworldBattle.HUD_PIN, party)
+                                      OverworldBattle.HUD_PIN)
       if at then
         if enemy then
           BattleHudPanel.draw(battle.enemy, party,

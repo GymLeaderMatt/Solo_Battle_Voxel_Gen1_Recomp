@@ -61,35 +61,120 @@ BattleHudPanel.PANEL_H = 216
 
 BattleHudPanel.EDGE = 10         -- from the window edge
 BattleHudPanel.OUTLINE = 6       -- white border thickness
-BattleHudPanel.RADIUS = 34       -- outer corner radius
-BattleHudPanel.PAD = 12          -- inside the outline
-BattleHudPanel.BAR_H = 64
-BattleHudPanel.BAR_OUTLINE = 6
-BattleHudPanel.BAR_RADIUS = 30
-BattleHudPanel.COL_GAP = 6       -- name column to level/status column
+BattleHudPanel.RADIUS = 30       -- outer corner radius
 
--- The gap between the name row and the bar is the SAME as the padding above
--- the name and below the bar, so the three margins read as one rhythm rather
--- than as a box with its contents pushed to the ends. Nothing is centred in
--- leftover space -- see panelHeight: the box is as tall as its contents need
--- and no taller, which is also why the player's panel is shorter than the
--- foe's (no ball cluster to make room for).
-BattleHudPanel.ROW_GAP = 12
+-- ONE gap, and it is every gap in the panel: the top of the black field to
+-- the name, the name to the bar, the bar to the bottom of the black field,
+-- and both sides.
+--
+-- Measured INSIDE the outline, and that is the whole point. Measuring from
+-- the outer edge is arithmetically tidier and visibly wrong: the top and
+-- bottom gaps each spend an OUTLINE of their length on white border, the
+-- middle one spends none, so three equal numbers land on screen as 6px, 11px,
+-- 6px. The outline is a hard edge, not space -- what the eye measures is the
+-- black, so the black is what gets padded.
+--
+--     +==========================+  <- OUTLINE, the frame
+--     |                          |     PAD
+--     |  NAME              L:15  |     the name's ink
+--     |                          |     PAD
+--     |  [=========-----------]  |     BAR_H
+--     |                          |     PAD
+--     +==========================+
+--
+-- 11 rather than 12 because it keeps the panel at exactly the height the
+-- outer-edge version had: the name comes down about a pixel and a half at a
+-- 1080-ish window and the gap under it loses about three, which is the whole
+-- correction, with no change to where either panel sits.
+BattleHudPanel.PAD = 11
+
+-- The bar is the panel's whole reason for existing, but it was reading as a
+-- slab rather than as a gauge: 64 units tall with a 6-unit rim around the
+-- track and another 4 around the fill meant a third of the bar was edge. 48
+-- is the same bar a quarter thinner, and the two rims come down with it --
+-- still enough to hold the fill off the track and the track off the black
+-- field, without the outline being the loudest thing on the panel.
+BattleHudPanel.BAR_H = 48
+BattleHudPanel.BAR_OUTLINE = 4
+BattleHudPanel.BAR_RADIUS = 24   -- exactly BAR_H/2: a true pill, no flat run
+
+-- The MINIMUM clear air between the name and the level/status, not the actual
+-- gap: the name is left-aligned and the label right-aligned, so whatever is
+-- left over between them is the gap, and for a name of ordinary length that is
+-- most of the panel. This number only binds in the one case where both are as
+-- long as they can be, and it is what the glyph size is solved against.
+BattleHudPanel.COL_GAP = 13
+
+-- The label the NAME'S SIZE is solved against: "L:99", "SLP", "PSN" -- four
+-- cells, which covers every status and every level up to 99.
+--
+-- Sizing against the five of "L:100" instead costs the name a whole glyph
+-- step, which is a permanent price paid for levels 100 and up. The name is fit
+-- to the label actually in hand at draw time (see draw), so a level-100 mon
+-- with a maximum-length name loses its last CHARACTER for those few battles
+-- rather than every name in the game losing a fifth of its size. Nothing
+-- resizes and nothing overlaps either way.
+BattleHudPanel.LABEL_FIT = 4
+
+-- ------- where the glyphs actually are
+--
+-- The font's cell is 8 rows; the LETTERS are not. Gen 1's uppercase leaves
+-- blank rows in the cell (the baseline is not the last row), and every gap
+-- measured against the cell therefore comes out that much bigger than it
+-- looks -- which is why the space under the name read as much larger than the
+-- space above it even when the two numbers matched. Rows are measured from
+-- the INK instead: fontInk() reads the font's real top and bottom row once,
+-- and PAD is applied to those.
+--
+-- These are the fallback if the probe cannot be read back (a driver that
+-- refuses canvas readback). The whole cell is never WRONG, only a little
+-- loose under the name -- the old behaviour exactly.
+BattleHudPanel.INK_TOP = 0
+BattleHudPanel.INK_BOTTOM = 8
 
 -- The white edge on the coloured fill itself. Without it the fill's moving
 -- end is a bare colour-to-track boundary while everything around it is
 -- outlined, which reads as unfinished as soon as the bar starts draining.
-BattleHudPanel.FILL_OUTLINE = 4
+BattleHudPanel.FILL_OUTLINE = 3
 
-BattleHudPanel.BALL_D = 26       -- one ball, corner to corner
-BattleHudPanel.BALL_GAP = 4
+-- ------- the party pill
+--
+-- The balls are NOT inside the panel any more. They used to stack over the
+-- level in the right-hand column, which made the foe's box taller than the
+-- player's by the height of a ball cluster -- the two sides never matched,
+-- and the foe's name row carried a hole in it that the player's did not.
+-- They get their own box above the foe's panel now (see drawBallBox), so both
+-- panels are the same box at the same height and the party count is a
+-- separate piece of furniture that appears only when there is a party.
+-- The pill's outline matches the panel's, because two pieces of white-edged
+-- furniture sitting one above the other at different stroke weights read as a
+-- mistake. Its PADDING deliberately does not take the panel's PAD: that gap
+-- is set by a row of type that needs air around it, and a capsule that is
+-- nothing but balls wants to hug them.
+BattleHudPanel.BALL_D = 28       -- one ball, corner to corner
+BattleHudPanel.BALL_GAP = 8      -- between balls
+BattleHudPanel.BALL_BOX_PAD = 7  -- inside the pill's outline
+BattleHudPanel.BALL_BOX_OUTLINE = 6
+BattleHudPanel.BALL_BOX_GAP = 4 -- pill's bottom edge to the panel's top edge
 
--- Names are cut to this many characters and every panel is sized for exactly
--- that many, so the glyphs are the same size on every panel AND as large as
--- the box can carry. Gen 1's cap is 10, and sizing for 10 left a third of the
--- panel empty on the short names that are far more common; 7 is the trade --
--- METAPOD fits whole, VICTREEBEL loses its tail. A nickname avoids the cut.
-BattleHudPanel.NAME_MAX = 7
+-- Gen 1's own cap, so nothing is ever cut: VICTREEBEL fits whole. The glyphs
+-- are sized for exactly this many characters and stay that size on every
+-- panel, however short the name -- what a short name buys is a wider gap
+-- before the level, not bigger letters, because letters that changed size
+-- between one mon and the next would be the most distracting thing on screen.
+--
+-- Ten only fits because the level column is sized for four cells rather than
+-- five (see LABEL_FIT); a longer nickname, or the one level-100 case, is cut
+-- at draw time, never squeezed.
+BattleHudPanel.NAME_MAX = 10
+
+-- The level/status label's glyph scale as a fraction of the name's. A RATIO
+-- rather than a size of its own, because the one thing that has to hold at
+-- every resolution is that the level is SMALLER than the name: it is the
+-- secondary field, and sizing the two independently off the panel width let a
+-- narrow window round them to the same whole scale and make them peers.
+-- layout() also floors it a whole step below the name, so they cannot tie.
+BattleHudPanel.LEVEL_RATIO = 0.65
 
 -- Glyph scales are whole numbers in both axes or the strokes come out uneven,
 -- which at this size is the difference between "pixel font" and "blurry". The
@@ -245,6 +330,65 @@ function BattleHudPanel.textWidth(str)
   return img and img.w or 0
 end
 
+-- ------- the font's real top and bottom row
+--
+-- Measured, not assumed. The layout needs to know where the LETTERS are
+-- inside the 8-row cell, and the only authority on that is the font itself --
+-- a mod that swaps the font, or a future engine that ships a taller one,
+-- should retune the panel without anyone editing a constant.
+--
+-- Read once from a probe string of the glyphs the panel actually draws, off
+-- the same canvas the panel already renders text through, using the same ink
+-- test as the shader. One readback of an 8-row image, at the first panel of
+-- the session, and cached for the process.
+local INK_PROBE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:"
+local fontInkRows = nil    -- nil = untried, false = unreadable
+
+local function fontInk()
+  if fontInkRows ~= nil then return fontInkRows or nil end
+  fontInkRows = false
+  local img = textImage(INK_PROBE)
+  if img and img.canvas then
+    local ok, data = pcall(function() return img.canvas:newImageData() end)
+    if ok and data then
+      local iw, ih = data:getWidth(), data:getHeight()
+      local top, bottom
+      for y = 0, ih - 1 do
+        local inked = false
+        for x = 0, iw - 1 do
+          local r, g, b, a = data:getPixel(x, y)
+          -- LOVE 0.10 hands back 0..255, 11+ hands back 0..1
+          if a > 1 then r, g, b, a = r / 255, g / 255, b / 255, a / 255 end
+          if a > 0 and (0.299 * r + 0.587 * g + 0.114 * b) <= 0.35 then
+            inked = true
+            break
+          end
+        end
+        if inked then
+          if not top then top = y end
+          bottom = y + 1
+        end
+      end
+      if top and bottom and bottom > top then
+        fontInkRows = { top = top, bottom = bottom }
+      end
+    end
+  end
+  -- the probe is not a string any panel draws; do not leave it in the cache
+  if textCache[INK_PROBE] then
+    textCache[INK_PROBE] = nil
+    textCount = math.max(0, textCount - 1)
+  end
+  return fontInkRows or nil
+end
+
+-- The font's ink rows, as { first, one-past-last } within the 8-row cell.
+function BattleHudPanel.inkExtent()
+  local ink = fontInk()
+  if ink then return ink.top, ink.bottom end
+  return BattleHudPanel.INK_TOP, BattleHudPanel.INK_BOTTOM
+end
+
 -- ------- the party balls
 --
 -- Drawn rather than blitted. The engine's own sheet is four 8x8 tiles of
@@ -331,34 +475,80 @@ local function ballState(mon)
   return "ok"
 end
 
--- The 2x3 cluster, right-aligned, filling from the right:
+-- How many slots the party actually occupies, and their states, in order.
 --
---     3 2 1
---     6 5 4
---
--- Right-aligned and right-filled so a short party keeps a clean edge against
--- the panel's side instead of trailing a ragged gap. A four-mon trainer puts
--- slot 4 directly under slot 1; a two-mon one gets a single flush pair.
--- Empty slots are omitted rather than drawn as an empty tile, so a rival with
--- two badges does not look like a party that failed to load.
-function BattleHudPanel.drawBalls(party, right, top, d, gap)
-  if not party then return 0, 0 end
-  local r = d / 2
-  local drawn = 0
+-- Empty slots are omitted rather than drawn as an empty tile: the box is
+-- sized to the party, so a rival with two mons gets a two-ball box, not a
+-- six-ball box with four holes in it. The states are collected once because
+-- both the measuring and the drawing need them and the party can change
+-- between frames.
+local function ballStates(party)
+  local out = {}
+  if not party then return out end
   for slot = 1, 6 do
     local state = ballState(party[slot])
-    if state then
-      local col = (slot - 1) % 3            -- 0 = rightmost
-      local row = math.floor((slot - 1) / 3)
-      drawBall(right - r - col * (d + gap), top + r + row * (d + gap),
-               r, state)
-      drawn = math.max(drawn, slot)
-    end
+    if state then out[#out + 1] = state end
   end
-  if drawn == 0 then return 0, 0 end
-  local cols = math.min(3, drawn)
-  local rows = drawn > 3 and 2 or 1
-  return cols * d + (cols - 1) * gap, rows * d + (rows - 1) * gap
+  return out
+end
+
+-- The party box's own size in window pixels, or nil when there is no party to
+-- draw. Measured separately from the drawing so place() can hang the panel
+-- and the box off the same baseline without drawing anything first.
+function BattleHudPanel.ballBoxSize(party, s)
+  local P = BattleHudPanel
+  local n = #ballStates(party)
+  if n == 0 then return nil end
+  local d, gap = P.BALL_D * s, P.BALL_GAP * s
+  local outline, pad = P.BALL_BOX_OUTLINE * s, P.BALL_BOX_PAD * s
+  local inner = n * d + (n - 1) * gap
+  return inner + (outline + pad) * 2, d + (outline + pad) * 2, n
+end
+
+-- The party box: one row of up to six balls in their own rounded box, drawn
+-- with its RIGHT edge at `right` and its BOTTOM edge at `bottom`.
+--
+-- Anchored by its bottom-right rather than its top-left because that is the
+-- corner that has to stay put: the box sits above the foe's panel and shares
+-- its right edge, and it grows leftward and upward as the party fills. Fixing
+-- the far corner instead would make the box appear to slide along the panel
+-- every time a trainer had a different number of mons.
+--
+-- Same treatment as the panel and the bar -- a white shape with the black
+-- field inset into it -- so the three pieces of furniture read as one set,
+-- and fully rounded (radius = half the height) because at this size a box
+-- that is mostly ball wants to be a capsule around them rather than a card.
+function BattleHudPanel.drawBallBox(party, right, bottom, s)
+  local P = BattleHudPanel
+  local states = ballStates(party)
+  local n = #states
+  if n == 0 then return 0, 0 end
+
+  local w, h = P.ballBoxSize(party, s)
+  local x, y = right - w, bottom - h
+  local outline = P.BALL_BOX_OUTLINE * s
+  local radius = h / 2
+
+  local g = love.graphics
+  local oc = P.OUTLINE_COLOR
+  g.setColor(oc[1], oc[2], oc[3], 1)
+  g.rectangle("fill", x, y, w, h, radius, radius)
+  local f = P.FILL
+  g.setColor(f[1], f[2], f[3], 1)
+  g.rectangle("fill", x + outline, y + outline,
+              w - outline * 2, h - outline * 2,
+              math.max(0, radius - outline), math.max(0, radius - outline))
+  g.setColor(1, 1, 1, 1)
+
+  -- Party order, slot 1 at the left, the way the party screen lists it.
+  local d, gap = P.BALL_D * s, P.BALL_GAP * s
+  local r = d / 2
+  local cx = x + outline + P.BALL_BOX_PAD * s + r
+  local cy = y + h / 2
+  for i = 1, n do
+    drawBall(cx + (i - 1) * (d + gap), cy, r, states[i])
+  end
+  return w, h
 end
 
 -- ------- the bar
@@ -422,46 +612,81 @@ end
 
 -- ------- how tall the box has to be
 --
--- Derived, not declared. The name row is exactly as tall as the taller of the
--- two things in it -- the glyphs, or the ball cluster stacked over the
--- level/status label -- and the box is that plus one padding above, one gap,
--- the bar, and one padding below. Three equal margins, nothing floating in
--- slack, and the player's box comes out shorter than the foe's because it has
--- no cluster to carry.
-function BattleHudPanel.layout(s, hasBalls)
+-- Derived, not declared, and from ONE number: three stacked gaps of black,
+-- the name row and the bar, with the outline outside all of it.
+--
+--     OUTLINE         the frame, not space
+--     PAD             black, to the top of the name's INK
+--     rowH            the name's ink, nothing more
+--     PAD             black, to the top of the bar
+--     barH
+--     PAD             black, to the frame
+--     OUTLINE
+--
+-- Every gap of black the same size, and measured against the letters rather
+-- than the cell they sit in. Nothing floats in slack and there is no second
+-- spacing number to keep in sync with the first.
+--
+-- BOTH SIDES GET THE SAME NUMBER. There is no hasBalls case any more -- the
+-- party moved into its own box above the foe's panel -- and that is the whole
+-- point: two panels of the same height put the two HP bars on the same line,
+-- which is what the eye is actually comparing during a battle. The argument
+-- is still accepted and ignored so an older caller does not break.
+function BattleHudPanel.layout(s)
   local P = BattleHudPanel
   local w = P.PANEL_W * s
-  local outline, pad = P.OUTLINE * s, P.PAD * s
-  local cw = w - (outline + pad) * 2
+  local outline = P.OUTLINE * s
+  local pad = P.PAD * s
+  local inset = outline + pad          -- outer edge to any content
+  local cw = w - inset * 2
   local gap = P.COL_GAP * s
   local barH = P.BAR_H * s
-  local rowGap = P.ROW_GAP * s
+  local rowGap = pad                   -- the name-to-bar gap IS the padding
+
+  -- The two glyph scales are solved together, because each one's width comes
+  -- out of the other's: the name gets what the label column does not reserve.
+  --
+  -- Pass one sizes the label off the panel width, as before, and the name off
+  -- what is left. Pass two pins the label to LEVEL_RATIO of the name and a
+  -- whole step below it, which is the rule that has to hold; since that can
+  -- only make the label SMALLER, the name's share can only grow, so the name
+  -- re-solves upward and the ratio still holds. No third pass can change it.
+  local function solve(smallScale)
+    -- Reserve for a FIXED number of cells, never for the label in hand: a
+    -- panel whose glyphs changed size between level 99 and 100, or between a
+    -- level and a status, would visibly twitch.
+    local labelReserve = P.LABEL_FIT * 8 * smallScale
+    local nameW = math.max(0, cw - labelReserve - gap)
+    local nameX = math.max(1, math.floor(nameW / (P.NAME_MAX * 8)))
+    return nameW, nameX, nameX + (P.NAME_STRETCH or 0), labelReserve
+  end
+
   local smallScale = math.max(1, math.floor(cw / 130))
+  local nameW, nameX, nameY, labelReserve = solve(smallScale)
 
-  -- Reserve for the WIDEST label the column can ever hold ("L:100"), not for
-  -- the one in hand: a panel that changed width between level 99 and 100, or
-  -- between a level and a status, would visibly twitch.
-  local labelReserve = 5 * 8 * smallScale
-  local ballD, ballGap = P.BALL_D * s, P.BALL_GAP * s
-  local clusterW = ballD * 3 + ballGap * 2
-  local rightCol = math.max(labelReserve, hasBalls and clusterW or 0)
-  local nameW = math.max(0, cw - rightCol - gap)
+  local wanted = math.max(1, math.floor(nameY * P.LEVEL_RATIO + 0.5))
+  if wanted > nameY - 1 then wanted = nameY - 1 end
+  if wanted < 1 then wanted = 1 end
+  if wanted < smallScale then
+    smallScale = wanted
+    nameW, nameX, nameY, labelReserve = solve(smallScale)
+  end
 
-  local nameX = math.max(1, math.floor(nameW / (P.NAME_MAX * 8)))
-  local nameY = nameX + (P.NAME_STRETCH or 0)
-  local labelH = 8 * smallScale
-  local stack = hasBalls
-                and (ballD * 2 + ballGap + ballGap + labelH)
-                or labelH
-  local rowH = math.max(8 * nameY, stack)
+  -- The row is the NAME'S INK, not its cell. Taken from the font's extent
+  -- rather than the string in hand so the box is the same height whatever is
+  -- in it -- a name that happens to have no descender must not make a shorter
+  -- panel than one that does.
+  local inkTop, inkBottom = P.inkExtent()
+  local rowH = (inkBottom - inkTop) * nameY
 
+  -- Three equal gaps of black, with the frame outside them.
   return {
-    w = w, h = outline * 2 + pad * 2 + rowH + rowGap + barH,
-    outline = outline, pad = pad, cw = cw, gap = gap,
+    w = w, h = outline * 2 + pad * 3 + rowH + barH,
+    outline = outline, pad = pad, inset = inset, cw = cw, gap = gap,
     barH = barH, rowGap = rowGap, rowH = rowH,
+    inkTop = inkTop, inkBottom = inkBottom,
     smallScale = smallScale, nameX = nameX, nameY = nameY,
-    nameW = nameW, rightCol = rightCol,
-    ballD = ballD, ballGap = ballGap,
+    nameW = nameW, rightCol = labelReserve,
   }
 end
 
@@ -492,15 +717,21 @@ local function rightLabel(battler)
   return "L:" .. tostring(level or "?"), BattleHudPanel.TEXT
 end
 
--- Draw one panel at (x, y), `w` x `h` window pixels, for `battler`.
--- `party` draws the ball cluster; pass nil for the player's side.
+-- Draw one panel with its top-left at (x, y), for `battler`.
+-- `party` puts the party box above it; pass nil for the player's side and for
+-- a wild foe, which has no party to show.
 function BattleHudPanel.draw(battler, party, x, y, s)
   if not battler then return end
   local g = love.graphics
   local P = BattleHudPanel
-  local L = P.layout(s, party and true or false)
+  local L = P.layout(s)
   local w, h = L.w, L.h
   local radius = P.RADIUS * s
+
+  -- the party box, above the panel and sharing its right edge
+  if party then
+    P.drawBallBox(party, x + w, y - P.BALL_BOX_GAP * s, s)
+  end
 
   -- box: white outline, then the black field inset into it
   local oc = P.OUTLINE_COLOR
@@ -513,29 +744,55 @@ function BattleHudPanel.draw(battler, party, x, y, s)
               math.max(0, radius - L.outline), math.max(0, radius - L.outline))
   g.setColor(1, 1, 1, 1)
 
-  local cx = x + L.outline + L.pad
-  local cy = y + L.outline + L.pad
+  local cx = x + L.inset
+  local cy = y + L.inset
   local right = cx + L.cw
 
-  -- name, cut to NAME_MAX and drawn at the size every panel uses
-  local name = battler.name or "?"
-  if #name > P.NAME_MAX then name = name:sub(1, P.NAME_MAX) end
-  local nameH = 8 * L.nameY
-  P.text(name, cx, cy + (L.rowH - nameH) / 2, L.nameX, L.nameY, P.TEXT)
+  -- The name row: name at the left, level-or-status flush right, and the two
+  -- sitting on ONE BASELINE -- the bottom of the name's ink, which is also the
+  -- line the bar hangs one PAD below.
+  --
+  -- Both used to be centred in the row independently, so the smaller label
+  -- floated half a glyph off the name's feet and the pair read as two things
+  -- at two heights rather than as one line of type. Aligning bottoms rather
+  -- than centres is what makes a smaller label look deliberate instead of
+  -- misplaced, and it holds at every scale because it is one subtraction
+  -- rather than a rounded halving of a difference.
+  --
+  -- Both are placed by their INK. P.text takes the top-left of the CELL, and
+  -- the cell has blank rows in it -- so the cell is pushed up by whatever the
+  -- font leaves below its baseline, at each label's own scale. Aligning the
+  -- cells instead would put the two baselines apart by the difference between
+  -- those two scales, which is precisely the drift this is here to remove.
+  local baseline = cy + L.rowH
 
-  -- right column: balls above, level-or-status below, both flush right
-  local ballH = 0
-  if party then
-    local _
-    _, ballH = P.drawBalls(party, right, cy, L.ballD, L.ballGap)
-  end
+  -- The label is measured FIRST, because the name is cut to what is actually
+  -- left beside it rather than to a fixed count.
+  --
+  -- The glyphs were sized for LABEL_FIT cells (four: "L:99", "SLP"), which is
+  -- what lets a ten-character name fit at full size. A five-cell label --
+  -- "L:100", and nothing else -- takes one cell more than that was sized for,
+  -- so the name gives up its last character for those battles. The
+  -- alternative is sizing every panel in the game for a label almost no
+  -- battle ever shows, and paying for it in glyph size the whole way.
+  --
+  -- Cut, never squeezed: the name's size is fixed by layout() and identical
+  -- on every panel. Only how many characters survive changes.
   local label, labelColor = rightLabel(battler)
   local labelW = P.textWidth(label) * L.smallScale
-  local labelH = 8 * L.smallScale
-  local labelY = ballH > 0 and (cy + ballH + L.ballGap)
-                 or (cy + (L.rowH - labelH) / 2)
-  labelY = math.min(labelY, cy + L.rowH - labelH)
-  P.text(label, right - labelW, labelY, L.smallScale, L.smallScale, labelColor)
+  P.text(label, right - labelW, baseline - L.inkBottom * L.smallScale,
+         L.smallScale, L.smallScale, labelColor)
+
+  local name = battler.name or "?"
+  local cell = 8 * L.nameX
+  local fits = P.NAME_MAX
+  if cell > 0 then
+    fits = math.floor((L.cw - labelW - L.gap) / cell)
+    if fits > P.NAME_MAX then fits = P.NAME_MAX end
+    if fits < 1 then fits = 1 end
+  end
+  if #name > fits then name = name:sub(1, fits) end
+  P.text(name, cx, baseline - L.inkBottom * L.nameY, L.nameX, L.nameY, P.TEXT)
 
   P.drawBar(cx, cy + L.rowH + L.rowGap, L.cw, L.barH, fractionOf(battler),
             P.BAR_OUTLINE * s, P.BAR_RADIUS * s, P.FILL_OUTLINE * s)
@@ -558,12 +815,15 @@ end
 -- Both edges are measured to the OUTSIDE of the white outline, which is what
 -- the eye lines up against: the outline is part of the panel, not something
 -- drawn around it.
-function BattleHudPanel.place(shot, swapped, pin, enemyHasBalls)
+function BattleHudPanel.place(shot, swapped, pin)
   local s = (shot.ph or 0) / BattleHudPanel.REF_H
   if s <= 0 then return nil end
   local P = BattleHudPanel
-  local pl = P.layout(s, false)
-  local en = P.layout(s, enemyHasBalls and true or false)
+  -- One layout for both sides now: the party box is drawn ABOVE the foe's
+  -- panel rather than inside it, so the two boxes are identical and their
+  -- tops line up as well as their bottoms.
+  local pl = P.layout(s)
+  local en = pl
   local edge = P.EDGE * s
   local playerX = swapped and edge or (shot.pw - edge - pl.w)
   local enemyX = swapped and (shot.pw - edge - en.w) or edge
